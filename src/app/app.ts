@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeResourceUrl, Title, Meta } from '@angular/platform-browser';
 import { Data, Service, Order, PartnerCustomer, OrderFile, Quote, AppNotification, User, UserPrivileges, getDefaultPrivileges, PayrollRecord, LeaveRequest, SalaryAdvance, AffiliateCommission, Payment, SystemSettings } from './data';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -18,10 +18,102 @@ import { DashboardChart } from './dashboard-chart';
 export class App {
   readonly data = inject(Data);
   private sanitizer = inject(DomSanitizer);
+  private titleService = inject(Title);
+  private metaService = inject(Meta);
 
   // --- UI NAVIGATION & ACTIVE VIEWS ---
   activeTab = signal<string>('dashboard'); // e.g. dashboard, orders, new_order, services, clients, reports, settings, audit_logs, tools
   selectedOrderId = signal<string | null>(null);
+
+  // --- CALENDAR STATE ---
+  calendarDate = signal<Date>(new Date());
+  calendarDays = computed(() => {
+    const d = this.calendarDate();
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    
+    const firstDayIndex = new Date(year, month, 1).getDay(); // 0 is Sunday, 1 is Monday...
+    const adjustedFirstDay = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+    
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const prevTotalDays = new Date(year, month, 0).getDate();
+    
+    interface CalendarDay {
+      date: Date;
+      isCurrentMonth: boolean;
+      dayNum: number;
+      isToday: boolean;
+    }
+    const days: CalendarDay[] = [];
+    
+    for (let i = adjustedFirstDay - 1; i >= 0; i--) {
+      const prevDay = prevTotalDays - i;
+      days.push({
+        date: new Date(year, month - 1, prevDay),
+        isCurrentMonth: false,
+        dayNum: prevDay,
+        isToday: false
+      });
+    }
+    
+    const today = new Date();
+    for (let i = 1; i <= totalDays; i++) {
+      const currDate = new Date(year, month, i);
+      const isToday = currDate.getDate() === today.getDate() &&
+                      currDate.getMonth() === today.getMonth() &&
+                      currDate.getFullYear() === today.getFullYear();
+      days.push({
+        date: currDate,
+        isCurrentMonth: true,
+        dayNum: i,
+        isToday
+      });
+    }
+    
+    const remaining = 42 - days.length;
+    for (let i = 1; i <= remaining; i++) {
+      days.push({
+        date: new Date(year, month + 1, i),
+        isCurrentMonth: false,
+        dayNum: i,
+        isToday: false
+      });
+    }
+    
+    return days;
+  });
+
+  prevCalendarMonth() {
+    this.calendarDate.update(d => {
+      const copy = new Date(d);
+      copy.setMonth(copy.getMonth() - 1);
+      return copy;
+    });
+  }
+
+  nextCalendarMonth() {
+    this.calendarDate.update(d => {
+      const copy = new Date(d);
+      copy.setMonth(copy.getMonth() + 1);
+      return copy;
+    });
+  }
+
+  getFrenchMonthYearLabel(date: Date): string {
+    const months = [
+      'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    ];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  }
+
+  isSameDate(d1Str: string | undefined, d2: Date): boolean {
+    if (!d1Str) return false;
+    const d1 = new Date(d1Str);
+    return d1.getDate() === d2.getDate() &&
+           d1.getMonth() === d2.getMonth() &&
+           d1.getFullYear() === d2.getFullYear();
+  }
 
   // --- FILE VIEWING & DOWNLOADS ---
   viewingFile = signal<OrderFile | { name: string; type: string; base64Data: string; id?: string } | null>(null);
@@ -457,6 +549,28 @@ export class App {
         if (isCompleted) {
           this.data.loadAll();
         }
+      });
+      
+      // Update page title and meta tags dynamically
+      effect(() => {
+        const title = this.data.settings()?.saasWorkspaceTitle || 'My Google AI Studio App';
+        this.titleService.setTitle(title);
+        
+        const description = this.data.settings()?.companyName || 'An application built with Google AI Studio.';
+        const customDesc = `Géré par ${title}. ${description}`;
+        
+        // Update standard meta tags
+        this.metaService.updateTag({ name: 'description', content: customDesc });
+        
+        // Update Open Graph (Facebook / LinkedIn) meta tags
+        this.metaService.updateTag({ property: 'og:title', content: title });
+        this.metaService.updateTag({ property: 'og:description', content: customDesc });
+        this.metaService.updateTag({ property: 'og:image', content: 'https://picsum.photos/seed/vibrant/1200/630' });
+        
+        // Update Twitter meta tags
+        this.metaService.updateTag({ name: 'twitter:title', content: title });
+        this.metaService.updateTag({ name: 'twitter:description', content: customDesc });
+        this.metaService.updateTag({ name: 'twitter:image', content: 'https://picsum.photos/seed/vibrant/1200/630' });
       });
     }
     
@@ -1385,6 +1499,18 @@ export class App {
     }
   }
 
+  async onSelectCalendarDate(orderId: string, date: Date) {
+    if (this.data.activeRole() !== 'admin' && this.data.activeRole() !== 'partner' && this.data.activeRole() !== 'assistant') {
+      return;
+    }
+    try {
+      const deadlineIso = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 17, 0, 0).toISOString();
+      await this.data.updateOrderDeadline(orderId, deadlineIso, `Planifié depuis le calendrier interactif.`);
+    } catch (err) {
+      console.error('Error updating order deadline from calendar:', err);
+    }
+  }
+
   onPaymentProofSelected(event: Event) {
     const target = event.target as HTMLInputElement;
     const file = target.files?.[0];
@@ -1531,6 +1657,29 @@ export class App {
       this.aiMessageInstruction.set('');
       this.suggestedMessage.set(null);
       this.data.successMessage.set("La suggestion a été copiée dans la zone de saisie du chat.");
+    }
+  }
+
+  getOrderStepIndex(status: string): number {
+    switch (status) {
+      case 'EN_ATTENTE_ANALYSE':
+      case 'DEVIS_EN_PREPARATION':
+        return 0; // Ouverte
+      case 'DEVIS_ENVOYE':
+      case 'EN_ATTENTE_ACOMPTE':
+        return 1; // Devis
+      case 'ACOMPTE_PAYE':
+        return 2; // Paiement
+      case 'EN_TRAITEMENT':
+        return 3; // Production
+      case 'CONTROLE_QUALITE':
+      case 'TRAVAIL_TERMINE':
+        return 4; // Qualité
+      case 'PRET_A_LIVRER':
+      case 'TERMINE':
+        return 5; // Livraison
+      default:
+        return 0;
     }
   }
 

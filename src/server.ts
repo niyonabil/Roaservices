@@ -6,6 +6,7 @@ import {
 } from '@angular/ssr/node';
 import express from 'express';
 import {join} from 'node:path';
+import {existsSync} from 'node:fs';
 import { GoogleGenAI, Type } from '@google/genai';
 import {
   loadDatabase,
@@ -35,7 +36,23 @@ import {
   AffiliateCommission,
 } from './server-db';
 
-const browserDistFolder = join(import.meta.dirname, '../browser');
+const possiblePaths = [
+  join(import.meta.dirname, '../browser'),       // Default SSR structure (when outputPath is dist/app)
+  join(import.meta.dirname, '../'),              // outputPath has base="dist", browser=""
+  join(import.meta.dirname, '../../dist'),       // running node src/server.ts directly from workspace root
+  join(import.meta.dirname, '../dist')           // backup check
+];
+
+let browserDistFolder = '';
+for (const p of possiblePaths) {
+  if (existsSync(join(p, 'index.html')) || existsSync(join(p, 'index.csr.html'))) {
+    browserDistFolder = p;
+    break;
+  }
+}
+if (!browserDistFolder) {
+  browserDistFolder = possiblePaths[0]; // Fallback to default
+}
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -1646,6 +1663,47 @@ app.post('/api/orders/:id/status', async (req, res) => {
       userName || 'Système',
       'Changement Statut',
       `Commande ${order.reference} passée de "${oldStatus}" à "${status}".`
+    );
+
+    res.json(order);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+app.post('/api/orders/:id/deadline', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { deadline, notes, userId, userName } = req.body;
+    const db = await loadDatabase();
+    const order = db.orders.find(o => o.id === id);
+    if (!order) {
+      res.status(404).json({ error: 'Commande introuvable.' });
+      return;
+    }
+
+    order.deadline = deadline;
+    order.updatedAt = new Date().toISOString();
+
+    if (order.tasks && order.tasks.length > 0) {
+      order.tasks[0].deadline = deadline;
+    }
+
+    await notifyOrderStakeholders(
+      db,
+      order,
+      'Date limite mise à jour',
+      `La date limite de livraison pour la commande ${order.reference} a été planifiée pour le ${new Date(deadline).toLocaleDateString('fr-FR')}.`,
+      { includeClient: true, includePartner: true, includeAdmins: true, includeAssigned: true }
+    );
+
+    await saveDatabase(db);
+
+    await logAction(
+      userId || 'system',
+      userName || 'Système',
+      'Planification Date',
+      `Date limite de la commande ${order.reference} changée pour le ${new Date(deadline).toLocaleDateString('fr-FR')}.${notes ? ' Remarque: ' + notes : ''}`
     );
 
     res.json(order);

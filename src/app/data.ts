@@ -1901,6 +1901,26 @@ export class Data {
     this.loadNotifications(true);
   }
 
+  async updateOrderDeadline(id: string, deadline: string, notes?: string) {
+    const user = this.currentUser();
+    const updated = await this.apiCall<Order>(`/api/orders/${id}/deadline`, {
+      method: 'POST',
+      body: JSON.stringify({
+        deadline,
+        notes: notes || '',
+        userId: user?.id || 'system',
+        userName: user?.name || 'Système'
+      })
+    });
+    this.orders.update(prev => prev.map(o => o.id === id ? { ...o, deadline: updated.deadline } : o));
+    if (this.activeOrderDetails()?.order.id === id) {
+      this.activeOrderDetails.update(prev => prev ? { ...prev, order: { ...prev.order, deadline: updated.deadline, tasks: updated.tasks } } : null);
+    }
+    this.successMessage.set(`Date limite mise à jour : ${new Date(deadline).toLocaleDateString('fr-FR')}`);
+    this.loadStats(true);
+    this.loadNotifications(true);
+  }
+
   async submitQuote(orderId: string, quoteData: Partial<Quote>) {
     const user = this.currentUser();
     const res = await this.apiCall<{ order: Order; quote: Quote }>(`/api/orders/${orderId}/quote?userId=${user?.id}&userName=${user?.name}`, {
