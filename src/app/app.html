@@ -1,6 +1,6 @@
 @if (!data.isSetupCompleted()) {
   <div class="min-h-screen bg-slate-50 flex items-center justify-center p-6 md:p-12">
-    <div class="bg-white rounded-2xl max-w-3xl w-full shadow-xl border border-slate-200 overflow-hidden" [formGroup]="setupForm">
+    <div class="bg-white rounded-2xl max-w-3xl w-full shadow-xl border border-slate-200 overflow-hidden">
       <!-- Top banner / header -->
       <div class="bg-slate-900 px-8 py-8 text-white text-center md:text-left md:flex md:items-center md:justify-between border-b border-slate-800">
         <div>
@@ -18,7 +18,7 @@
       </div>
 
       <!-- Main Form Body -->
-      <form (ngSubmit)="onSetupSubmit()" class="p-8 space-y-8">
+      <form [formGroup]="setupForm" (ngSubmit)="onSetupSubmit()" class="p-8 space-y-8">
         
         <!-- Error & Success Messages -->
         @if (setupError()) {
@@ -138,7 +138,7 @@
           <p class="text-xs text-slate-500 font-medium">Tous les champs marqués d'une astérisque (*) sont requis.</p>
           <button 
             type="submit"
-            [disabled]="setupForm.invalid || isSubmittingSetup()"
+            [disabled]="isSubmittingSetup()"
             class="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-black px-6 py-3 rounded-xl flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
           >
             @if (isSubmittingSetup()) {

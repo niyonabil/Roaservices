@@ -1712,24 +1712,81 @@ export class App {
   }
 
   async onSetupSubmit() {
+    this.setupError.set(null);
+    this.setupSuccess.set(null);
+
+    // Validate admin details
+    const adminName = this.setupForm.get('adminName')?.value?.trim();
+    const adminUsername = this.setupForm.get('adminUsername')?.value?.trim();
+    const adminEmail = this.setupForm.get('adminEmail')?.value?.trim();
+    const adminPassword = this.setupForm.get('adminPassword')?.value;
+
+    if (!adminName) {
+      this.setupError.set("Le nom complet du compte administrateur est requis.");
+      return;
+    }
+    if (!adminUsername) {
+      this.setupError.set("Le nom d'utilisateur de l'administrateur est requis.");
+      return;
+    }
+    if (!adminEmail) {
+      this.setupError.set("L'adresse e-mail de l'administrateur est requise.");
+      return;
+    }
+    if (this.setupForm.get('adminEmail')?.hasError('email')) {
+      this.setupError.set("L'adresse e-mail de l'administrateur n'est pas au format valide (ex: admin@remix.ma).");
+      return;
+    }
+    if (!adminPassword) {
+      this.setupError.set("Le mot de passe de l'administrateur est requis.");
+      return;
+    }
+    if (adminPassword.length < 6) {
+      this.setupError.set("Le mot de passe de l'administrateur doit contenir au moins 6 caractères.");
+      return;
+    }
+
+    const dbType = this.setupForm.get('databaseType')?.value;
+    if (dbType !== 'firebase') {
+      const host = this.setupForm.get('host')?.value?.trim();
+      const port = this.setupForm.get('port')?.value;
+      const databaseName = this.setupForm.get('databaseName')?.value?.trim();
+      const username = this.setupForm.get('username')?.value?.trim();
+
+      if (!host) {
+        this.setupError.set("L'hôte / URL du serveur de base de données est requis.");
+        return;
+      }
+      if (!port) {
+        this.setupError.set("Le port de connexion de la base de données est requis.");
+        return;
+      }
+      if (!databaseName) {
+        this.setupError.set("Le nom de la base de données est requis.");
+        return;
+      }
+      if (!username) {
+        this.setupError.set("L'identifiant d'utilisateur de la base de données est requis.");
+        return;
+      }
+    }
+
     if (this.setupForm.invalid) {
-      this.setupError.set("Veuillez remplir tous les champs obligatoires correctement.");
+      this.setupError.set("Certains champs du formulaire d'installation sont invalides. Veuillez vérifier vos saisies.");
       return;
     }
     
-    this.setupError.set(null);
-    this.setupSuccess.set(null);
     this.isSubmittingSetup.set(true);
     
     try {
       const formVal = this.setupForm.value;
       const dbConfig = {
         databaseType: formVal.databaseType,
-        host: formVal.host,
-        port: formVal.port,
-        databaseName: formVal.databaseName,
-        username: formVal.username,
-        password: formVal.password
+        host: formVal.host || '',
+        port: formVal.port || 3306,
+        databaseName: formVal.databaseName || '',
+        username: formVal.username || '',
+        password: formVal.password || ''
       };
       const adminUser = {
         name: formVal.adminName,
