@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "node src/server.ts",
+    "start": "node server.ts",
     "dev": "cross-env ng serve --port=3000 --host=0.0.0.0 --allowed-hosts=true ${DISABLE_HMR:+--live-reload=false}",
     "build": "ng build && cp -r dist/browser/* dist/",
     "watch": "ng build --watch --configuration development",

@@ -349,6 +349,14 @@ export class App {
   uploadFileType = signal<string | null>(null);
   uploadFileSize = signal<number>(0);
 
+  // --- CAMERA DOCUMENT SCANNER STATE ---
+  isScannerOpen = signal<boolean>(false);
+  scannerLoading = signal<boolean>(false);
+  scannerError = signal<string | null>(null);
+  availableCameras = signal<MediaDeviceInfo[]>([]);
+  currentCameraId = signal<string | null>(null);
+  activeStream: MediaStream | null = null;
+
   // --- NEW CLIENT OPTION IN NEW ORDER ---
   isCreatingNewCustomer = signal<boolean>(false);
 
@@ -1414,6 +1422,143 @@ export class App {
       this.uploadFileSize.set(file.size);
     };
     reader.readAsDataURL(file);
+  }
+
+  async openScanner() {
+    this.isScannerOpen.set(true);
+    this.scannerLoading.set(true);
+    this.scannerError.set(null);
+    this.availableCameras.set([]);
+    this.currentCameraId.set(null);
+
+    try {
+      // 1. Request camera permission
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // Stop this initial stream immediately, we will start with specific constraints
+      stream.getTracks().forEach(track => track.stop());
+
+      // 2. Enumerate available video inputs
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(d => d.kind === 'videoinput');
+      this.availableCameras.set(videoDevices);
+
+      // Prefer back camera if available (facingMode = 'environment')
+      let selectedDeviceId: string | undefined;
+      const backCam = videoDevices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('arrière') || d.label.toLowerCase().includes('environment'));
+      if (backCam) {
+        selectedDeviceId = backCam.deviceId;
+      } else if (videoDevices.length > 0) {
+        selectedDeviceId = videoDevices[0].deviceId;
+      }
+
+      await this.startCamera(selectedDeviceId);
+    } catch {
+      this.scannerLoading.set(false);
+      this.scannerError.set("Impossible d'accéder à la caméra. Veuillez autoriser l'accès à la caméra pour cette application.");
+    }
+  }
+
+  async startCamera(deviceId?: string) {
+    this.scannerLoading.set(true);
+    this.scannerError.set(null);
+
+    // Stop existing stream if any
+    if (this.activeStream) {
+      this.activeStream.getTracks().forEach(track => track.stop());
+      this.activeStream = null;
+    }
+
+    try {
+      const constraints: MediaStreamConstraints = {
+        video: deviceId 
+          ? { deviceId: { exact: deviceId } } 
+          : { facingMode: 'environment' }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      this.activeStream = stream;
+      if (deviceId) {
+        this.currentCameraId.set(deviceId);
+      } else {
+        const track = stream.getVideoTracks()[0];
+        if (track) {
+          const settings = track.getSettings();
+          if (settings.deviceId) {
+            this.currentCameraId.set(settings.deviceId);
+          }
+        }
+      }
+
+      setTimeout(() => {
+        const video = document.getElementById('scannerVideo') as HTMLVideoElement;
+        if (video) {
+          video.srcObject = stream;
+          video.onloadedmetadata = () => {
+            video.play().catch(e => console.error("Error playing video:", e));
+            this.scannerLoading.set(false);
+          };
+        } else {
+          this.scannerLoading.set(false);
+          this.scannerError.set("Élément vidéo introuvable dans le document.");
+        }
+      }, 100);
+
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : '';
+      this.scannerLoading.set(false);
+      this.scannerError.set("Erreur lors de l'accès à la caméra sélectionnée. " + errMsg);
+    }
+  }
+
+  async switchCamera(deviceId: string) {
+    await this.startCamera(deviceId);
+  }
+
+  capturePhoto() {
+    const video = document.getElementById('scannerVideo') as HTMLVideoElement;
+    if (!video) {
+      this.scannerError.set("Le flux vidéo n'est pas prêt.");
+      return;
+    }
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        this.scannerError.set("Impossible d'initialiser le contexte de dessin.");
+        return;
+      }
+
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const base64Data = canvas.toDataURL('image/jpeg', 0.85);
+      const stringLength = base64Data.length - 'data:image/jpeg;base64,'.length;
+      const sizeInBytes = Math.round((stringLength * 3) / 4);
+
+      this.uploadFileBase64.set(base64Data);
+      
+      const dateStr = new Date().toISOString().slice(0, 19).replace(/[-T:]/g, '_');
+      this.uploadFileName.set(`scan_document_${dateStr}.jpg`);
+      this.uploadFileType.set('image/jpeg');
+      this.uploadFileSize.set(sizeInBytes);
+
+      this.closeScanner();
+    } catch {
+      this.scannerError.set("Erreur lors de la capture de l'image.");
+    }
+  }
+
+  closeScanner() {
+    if (this.activeStream) {
+      this.activeStream.getTracks().forEach(track => track.stop());
+      this.activeStream = null;
+    }
+    this.isScannerOpen.set(false);
+    this.scannerLoading.set(false);
+    this.scannerError.set(null);
   }
 
   clearUploadFile() {

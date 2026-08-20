@@ -2739,12 +2739,45 @@
               <!-- SECTION 4: Attach initial files -->
               <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3 text-xs">
                 <p class="font-bold text-slate-700">Documents sources originaux (Scans, photos, PDF) :</p>
-                <div class="flex items-center gap-3">
-                  <input type="file" (change)="onFileSelected($event)" class="text-xs text-slate-500" />
-                  @if (uploadFileName()) {
-                    <span class="text-xs text-emerald-600 font-bold">Prêt : {{ uploadFileName() }}</span>
-                  }
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div class="flex items-center gap-3 flex-1">
+                    <input type="file" (change)="onFileSelected($event)" class="text-xs text-slate-500 flex-1" />
+                  </div>
+                  
+                  <div class="flex items-center gap-2">
+                    <span class="text-slate-400">ou</span>
+                    <button 
+                      type="button" 
+                      (click)="openScanner()"
+                      class="bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-xl flex items-center gap-2 transition-all text-xs cursor-pointer"
+                    >
+                      <span class="material-icons text-sm">photo_camera</span>
+                      Scanner document
+                    </button>
+                  </div>
                 </div>
+
+                @if (uploadFileName()) {
+                  <div class="mt-2 p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-between">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                      @if (uploadFileType()?.startsWith('image/') && uploadFileBase64()) {
+                        <img [src]="uploadFileBase64()" alt="Aperçu du document scanné" class="w-8 h-8 rounded-md object-cover border border-slate-200" referrerpolicy="no-referrer" />
+                      } @else {
+                        <span class="material-icons text-slate-400 text-sm">insert_drive_file</span>
+                      }
+                      <span class="text-xs font-semibold text-slate-700 truncate">{{ uploadFileName() }}</span>
+                      <span class="text-[10px] text-slate-400">({{ (uploadFileSize() / 1024).toFixed(1) }} KB)</span>
+                    </div>
+                    <button 
+                      type="button" 
+                      (click)="clearUploadFile()" 
+                      class="text-red-500 hover:text-red-700 p-1 flex items-center cursor-pointer"
+                      title="Supprimer ce fichier"
+                    >
+                      <span class="material-icons text-sm">delete</span>
+                    </button>
+                  </div>
+                }
               </div>
 
               <!-- Real-time price estimator block -->
@@ -9442,6 +9475,104 @@
           >
             Fermer
           </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- CAMERA DOCUMENT SCANNER MODAL -->
+  @if (isScannerOpen()) {
+    <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-xl border border-slate-200 flex flex-col max-h-[90vh]">
+        <!-- Header -->
+        <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+          <div class="flex items-center gap-2">
+            <span class="material-icons text-slate-700">photo_camera</span>
+            <span class="font-bold text-slate-800 text-sm">Scanner un document physique</span>
+          </div>
+          <button type="button" (click)="closeScanner()" class="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+            <span class="material-icons text-lg">close</span>
+          </button>
+        </div>
+
+        <!-- Stream / Camera Body -->
+        <div class="relative bg-slate-950 aspect-[4/3] flex items-center justify-center overflow-hidden">
+          <!-- Video stream -->
+          <video 
+            id="scannerVideo" 
+            autoplay 
+            playsinline 
+            muted 
+            class="w-full h-full object-cover"
+          ></video>
+
+          <!-- Document Alignment Overlay Target Frame -->
+          <div class="absolute inset-8 border-2 border-dashed border-white/50 rounded-xl pointer-events-none flex items-center justify-center">
+            <span class="text-[10px] text-white/80 bg-black/60 px-2 py-1 rounded-md font-bold tracking-wider uppercase">Aligner le document ici</span>
+          </div>
+
+          <!-- Loading spinner -->
+          @if (scannerLoading()) {
+            <div class="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center text-white gap-3">
+              <span class="animate-spin inline-block w-8 h-8 border-4 border-white border-t-transparent rounded-full"></span>
+              <span class="text-xs font-semibold">Initialisation de la caméra...</span>
+            </div>
+          }
+
+          <!-- Error panel -->
+          @if (scannerError()) {
+            <div class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center text-white gap-4">
+              <span class="material-icons text-red-500 text-4xl">videocam_off</span>
+              <p class="text-xs font-bold text-red-300 max-w-xs">{{ scannerError() }}</p>
+              <button 
+                type="button" 
+                (click)="openScanner()" 
+                class="bg-white/10 hover:bg-white/20 text-white font-bold py-2 px-4 rounded-xl text-xs transition-colors border border-white/10 cursor-pointer"
+              >
+                Réessayer
+              </button>
+            </div>
+          }
+        </div>
+
+        <!-- Camera controls & Switcher -->
+        <div class="p-4 bg-slate-50 border-t border-slate-100 space-y-4">
+          <!-- Camera devices selector -->
+          @if (availableCameras().length > 1) {
+            <div class="flex items-center gap-2 justify-center">
+              <span class="text-[10px] font-bold text-slate-500 uppercase">Caméra :</span>
+              <select 
+                [value]="currentCameraId()" 
+                (change)="switchCamera($any($event.target).value)"
+                class="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs max-w-xs"
+              >
+                @for (cam of availableCameras(); track cam.deviceId) {
+                  <option [value]="cam.deviceId">{{ cam.label || 'Caméra ' + ($index + 1) }}</option>
+                }
+              </select>
+            </div>
+          }
+
+          <!-- Main capture buttons -->
+          <div class="flex items-center justify-between gap-3">
+            <button 
+              type="button" 
+              (click)="closeScanner()"
+              class="bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl text-xs flex-1 transition-colors cursor-pointer"
+            >
+              Annuler
+            </button>
+
+            <button 
+              type="button" 
+              (click)="capturePhoto()"
+              [disabled]="scannerLoading() || !!scannerError()"
+              class="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold py-2.5 px-6 rounded-xl text-xs flex-1 flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
+            >
+              <span class="material-icons text-sm">camera_alt</span>
+              Capturer la photo
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -675,10 +675,27 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
 // --- DB STORAGE LOGIC VIA FIRESTORE ---
 
-export async function loadDatabase(): Promise<AppDatabase> {
-  await ensureAuthenticated();
-  try {
-    const [
+// --- DB CACHING VARIABLES ---
+let cachedDatabaseState: AppDatabase | null = null;
+let cacheTimestamp = 0;
+let activeLoadPromise: Promise<AppDatabase> | null = null;
+const CACHE_TTL_MS = 4000; // 4 seconds cache TTL
+
+export function loadDatabase(): Promise<AppDatabase> {
+  const now = Date.now();
+  
+  if (cachedDatabaseState && (now - cacheTimestamp < CACHE_TTL_MS)) {
+    return Promise.resolve(cachedDatabaseState);
+  }
+  
+  if (activeLoadPromise) {
+    return activeLoadPromise;
+  }
+  
+  activeLoadPromise = (async () => {
+    await ensureAuthenticated();
+    try {
+      const [
       usersSnap,
       partnerCustomersSnap,
       servicesSnap,
@@ -966,7 +983,7 @@ export async function loadDatabase(): Promise<AppDatabase> {
       }
     }
 
-    return {
+    const resultState = {
       users,
       partners: users.filter(u => u.role === 'partner'),
       partnerCustomers,
@@ -983,13 +1000,22 @@ export async function loadDatabase(): Promise<AppDatabase> {
       affiliateCommissions,
       settings
     };
+    cachedDatabaseState = resultState;
+    cacheTimestamp = Date.now();
+    return resultState;
   } catch (err) {
     handleFirestoreError(err, OperationType.GET, 'database_load');
     throw err;
+  } finally {
+    activeLoadPromise = null;
   }
+  })();
+  return activeLoadPromise;
 }
 
 export async function saveDatabase(databaseState: AppDatabase): Promise<void> {
+  cachedDatabaseState = databaseState;
+  cacheTimestamp = Date.now();
   await ensureAuthenticated();
   try {
     const promises: Promise<void>[] = [];
@@ -1054,6 +1080,8 @@ export async function saveDatabase(databaseState: AppDatabase): Promise<void> {
 }
 
 export async function resetDatabase(): Promise<void> {
+  cachedDatabaseState = null;
+  cacheTimestamp = 0;
   await ensureAuthenticated();
   try {
     const [

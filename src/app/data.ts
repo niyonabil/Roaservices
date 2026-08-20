@@ -730,9 +730,22 @@ export class Data {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dbConfig, adminUser })
     });
-    const data = await res.json();
+    
+    let data: Record<string, unknown> = {};
+    const text = await res.text();
+    if (text) {
+      try {
+        data = JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        throw new Error("La réponse du serveur n'est pas au format JSON valide.");
+      }
+    } else if (!res.ok) {
+      throw new Error(`Erreur HTTP ${res.status} de l'installation (réponse vide).`);
+    }
+    
     if (!res.ok) {
-      throw new Error(data.error || "Une erreur est survenue lors de l'installation.");
+      const errVal = (data['error'] as string) || "Une erreur est survenue lors de l'installation.";
+      throw new Error(errVal);
     }
     this.isSetupCompleted.set(true);
     return data;
@@ -892,11 +905,23 @@ export class Data {
         },
         ...options
       });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `Erreur HTTP ${res.status}`);
+      const text = await res.text();
+      let data: Record<string, unknown> = {};
+      if (text) {
+        try {
+          data = JSON.parse(text) as Record<string, unknown>;
+        } catch {
+          if (!res.ok) {
+            throw new Error(`Erreur HTTP ${res.status}`);
+          }
+        }
       }
-      return await res.json() as T;
+
+      if (!res.ok) {
+        const errVal = (data['error'] as string) || `Erreur HTTP ${res.status}`;
+        throw new Error(errVal);
+      }
+      return data as T;
     } catch (err) {
       const msg = (err as Error).message || 'Erreur inconnue';
       // Only set UI error message on client-side if not silent
@@ -1004,13 +1029,13 @@ export class Data {
     if (this.pollingTimer) {
       clearInterval(this.pollingTimer);
     }
-    // Poll every 8 seconds for new notifications & order updates
+    // Poll every 20 seconds for new notifications & order updates
     this.pollingTimer = setInterval(() => {
       const user = this.currentUser();
       if (user && this.activeRole() !== 'public') {
         this.loadNotifications(true);
       }
-    }, 8000);
+    }, 20000);
   }
 
   stopPolling() {
@@ -1136,7 +1161,7 @@ export class Data {
         await this.loadOrders(true);
         await this.loadPayments(true);
         await this.loadStats(true);
-        await this.loadNotifications(false);
+        await this.loadNotifications(true);
         await delay(200); // Throttling
         
         // Batch 3: Admin/Partner/Assistant/HR/Affiliate
