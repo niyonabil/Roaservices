@@ -121,7 +121,7 @@ export class App {
   pdfZoom = signal<number>(100);
 
   // --- ESPACE OUTILS (TOOLS TAB) STATE ---
-  activeToolsTab = signal<'resources' | 'utilities' | 'gdrive'>('resources');
+  activeToolsTab = signal<'resources' | 'utilities' | 'gdrive' | 'firebase'>('resources');
   resourceCategoryFilter = signal<'all' | 'legal' | 'template' | 'example' | 'other'>('all');
   resourceSearchQuery = signal<string>('');
   showAddResourceModal = signal<boolean>(false);
@@ -275,6 +275,81 @@ export class App {
     if (!this.payrollForm) return null;
     return this.data.computeMoroccanPayroll(this.payrollForm.getRawValue());
   });
+
+  getClientOverviewForUser(userId: string, email?: string) {
+    return this.data.clientsOverview().find(c => 
+      c.id === userId || (email && c.email?.toLowerCase() === email.toLowerCase())
+    );
+  }
+
+  // --- FIREBASE CONFIGURATION & MIGRATION STATE ---
+  firebaseConfigForm = signal<{
+    projectId: string;
+    apiKey: string;
+    authDomain: string;
+    firestoreDatabaseId: string;
+    storageBucket: string;
+    messagingSenderId: string;
+    appId: string;
+  }>({
+    projectId: '',
+    apiKey: '',
+    authDomain: '',
+    firestoreDatabaseId: '(default)',
+    storageBucket: '',
+    messagingSenderId: '',
+    appId: ''
+  });
+  firebaseConfigLoading = signal<boolean>(false);
+  firebaseConfigMessage = signal<string | null>(null);
+  firebaseConfigError = signal<string | null>(null);
+
+  async loadFirebaseConfig() {
+    try {
+      this.firebaseConfigLoading.set(true);
+      const res = await fetch('/api/settings/firebase-config');
+      const json = await res.json();
+      if (json.success && json.config) {
+        this.firebaseConfigForm.set({
+          projectId: json.config.projectId || '',
+          apiKey: json.config.apiKey || '',
+          authDomain: json.config.authDomain || '',
+          firestoreDatabaseId: json.config.firestoreDatabaseId || '(default)',
+          storageBucket: json.config.storageBucket || '',
+          messagingSenderId: json.config.messagingSenderId || '',
+          appId: json.config.appId || ''
+        });
+      }
+    } catch (e) {
+      console.error("Error loading Firebase config:", e);
+    } finally {
+      this.firebaseConfigLoading.set(false);
+    }
+  }
+
+  async saveFirebaseConfig() {
+    try {
+      this.firebaseConfigLoading.set(true);
+      this.firebaseConfigMessage.set(null);
+      this.firebaseConfigError.set(null);
+      const res = await fetch('/api/settings/firebase-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.firebaseConfigForm())
+      });
+      const json = await res.json();
+      if (json.success) {
+        this.firebaseConfigMessage.set(json.message);
+        await this.data.loadAll();
+      } else {
+        this.firebaseConfigError.set(json.error || 'Erreur lors de l\'enregistrement de la configuration Firebase.');
+      }
+    } catch {
+      this.firebaseConfigError.set('Erreur réseau lors de l\'enregistrement de la configuration Firebase.');
+    } finally {
+      this.firebaseConfigLoading.set(false);
+    }
+  }
 
   // --- COMPREHENSIVE USER MANAGEMENT STATE ---
   usersActiveSubTab = signal<'all' | 'employees' | 'partners' | 'clients'>('all');

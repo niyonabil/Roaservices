@@ -14,6 +14,9 @@ import {
   deleteFirestoreDoc,
   resetDatabase,
   purgeDatabase,
+  invalidateDatabaseCache,
+  getFirebaseConfig,
+  updateFirebaseConfig,
   logAction,
   User,
   UserPrivileges,
@@ -754,7 +757,9 @@ app.delete('/api/users/:id', async (req, res) => {
       if (custIndex !== -1) {
         const cust = db.partnerCustomers[custIndex];
         db.partnerCustomers.splice(custIndex, 1);
+        await deleteFirestoreDoc('partnerCustomers', cust.id);
         await saveDatabase(db);
+        invalidateDatabaseCache();
         await logAction(
           (deletedByUserId as string) || 'system',
           (deletedByName as string) || 'Admin',
@@ -786,6 +791,7 @@ app.delete('/api/users/:id', async (req, res) => {
     
     await deleteFirestoreDoc('users', id);
     await saveDatabase(db);
+    invalidateDatabaseCache();
 
     await logAction(
       (deletedByUserId as string) || 'system',
@@ -3025,8 +3031,39 @@ app.post('/api/database/purge', async (req, res) => {
       return;
     }
     await purgeDatabase();
+    invalidateDatabaseCache();
     await logAction(userId, userName || user.name, 'Purge Base de Données', 'Purge complète de la base de données. Seul le compte administrateur boguiman@gmail.com a été conservé.');
     res.json({ success: true, message: 'Base de données purgée avec succès. Seul le compte administrateur (boguiman@gmail.com) est conservé.' });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// GET Firebase configuration
+app.get('/api/settings/firebase-config', async (req, res) => {
+  try {
+    const config = getFirebaseConfig();
+    res.json({ success: true, config });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// UPDATE Firebase configuration (Switch/Migrate Firebase Project)
+app.post('/api/settings/firebase-config', async (req, res) => {
+  try {
+    const newConfig = req.body;
+    if (!newConfig || !newConfig.projectId) {
+      res.status(400).json({ error: 'Configuration Firebase invalide (projectId requis).' });
+      return;
+    }
+    const success = updateFirebaseConfig(newConfig);
+    if (success) {
+      await logAction('system', 'Admin', 'Changement Firebase', `Mise à jour de la configuration Firebase vers le projet ${newConfig.projectId}.`);
+      res.json({ success: true, message: `Configuration Firebase enregistrée avec succès. Basculement vers le projet "${newConfig.projectId}".` });
+    } else {
+      res.status(500).json({ error: 'Échec de l\'enregistrement de la configuration Firebase sur le disque.' });
+    }
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

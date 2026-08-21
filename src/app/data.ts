@@ -267,7 +267,10 @@ export interface ClientOverviewItem {
   partnerId?: string;
   ordersCount: number;
   totalSpent: number;
+  paidAmount?: number;
+  solde?: number;
   unpaidAmount: number;
+  advanceAmount?: number;
   active: boolean;
   clientNotes?: string;
   createdAt: string;
@@ -771,6 +774,32 @@ export class Data {
   leaveRequests = signal<LeaveRequest[]>([]);
   salaryAdvances = signal<SalaryAdvance[]>([]);
   clientsOverview = signal<ClientOverviewItem[]>([]);
+
+  // --- CLIENT & PARTNER SOLDE COMPUTED STATS ---
+  directClientsOverview = computed(() => this.clientsOverview().filter(c => c.type === 'direct_client'));
+  b2bPartnersOverview = computed(() => this.clientsOverview().filter(c => c.type === 'b2b_partner'));
+
+  directClientsTotalSpent = computed(() => this.directClientsOverview().reduce((sum, c) => sum + (c.totalSpent || 0), 0));
+  directClientsTotalPaid = computed(() => this.directClientsOverview().reduce((sum, c) => sum + (c.paidAmount || 0), 0));
+  directClientsSolde = computed(() => this.directClientsTotalPaid() - this.directClientsTotalSpent());
+  directClientsAdvances = computed(() => this.directClientsOverview().reduce((sum, c) => sum + Math.max(0, (c.paidAmount || 0) - (c.totalSpent || 0)), 0));
+  directClientsUnpaid = computed(() => this.directClientsOverview().reduce((sum, c) => sum + Math.max(0, (c.totalSpent || 0) - (c.paidAmount || 0)), 0));
+
+  b2bPartnersTotalSpent = computed(() => this.b2bPartnersOverview().reduce((sum, c) => sum + (c.totalSpent || 0), 0));
+  b2bPartnersTotalPaid = computed(() => this.b2bPartnersOverview().reduce((sum, c) => sum + (c.paidAmount || 0), 0));
+  b2bPartnersSolde = computed(() => this.b2bPartnersTotalPaid() - this.b2bPartnersTotalSpent());
+  b2bPartnersAdvances = computed(() => this.b2bPartnersOverview().reduce((sum, c) => sum + Math.max(0, (c.paidAmount || 0) - (c.totalSpent || 0)), 0));
+  b2bPartnersUnpaid = computed(() => this.b2bPartnersOverview().reduce((sum, c) => sum + Math.max(0, (c.totalSpent || 0) - (c.paidAmount || 0)), 0));
+
+  totalClientsSolde = computed(() => this.directClientsSolde() + this.b2bPartnersSolde());
+  totalClientsAdvances = computed(() => this.directClientsAdvances() + this.b2bPartnersAdvances());
+  totalClientsUnpaid = computed(() => this.directClientsUnpaid() + this.b2bPartnersUnpaid());
+
+  currentUserSoldeItem = computed(() => {
+    const user = this.currentUser();
+    if (!user) return null;
+    return this.clientsOverview().find(c => c.id === user.id || (user.email && c.email?.toLowerCase() === user.email?.toLowerCase())) || null;
+  });
 
   // Affiliation Signals
   affiliates = signal<AffiliateWithStats[]>([]);

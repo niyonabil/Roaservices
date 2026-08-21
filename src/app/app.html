@@ -5011,6 +5011,13 @@
               >
                 ☁️ Stockage & Synchro Google Drive
               </button>
+              <button 
+                type="button" 
+                (click)="activeToolsTab.set('firebase'); loadFirebaseConfig()" 
+                [class]="activeToolsTab() === 'firebase' ? 'flex-1 py-2 text-xs font-bold rounded-xl text-center transition-all bg-amber-600 text-white shadow-xs cursor-pointer' : 'flex-1 py-2 text-xs font-semibold rounded-xl text-center transition-all text-slate-600 hover:bg-slate-50 cursor-pointer'"
+              >
+                🔥 Base de Données Firebase
+              </button>
             </div>
 
             <!-- TAB CONTAINER CONTENT -->
@@ -5698,6 +5705,130 @@
                   </div>
                 </div>
 
+              </div>
+            }
+
+            <!-- SUB-TAB 4: FIREBASE CONFIGURATION & MIGRATION -->
+            @if (activeToolsTab() === 'firebase') {
+              <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6 animate-fadeIn">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-black text-xl shadow-2xs">
+                      🔥
+                    </div>
+                    <div>
+                      <h3 class="font-black text-slate-900 text-sm uppercase tracking-wider">Configuration & Migration Firebase</h3>
+                      <p class="text-xs text-slate-500">Changer de projet Firebase Firestore ou connecter une nouvelle instance cloud</p>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    (click)="loadFirebaseConfig()" 
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <span class="material-icons text-sm">refresh</span> Recharger
+                  </button>
+                </div>
+
+                @if (firebaseConfigMessage()) {
+                  <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <span class="material-icons text-emerald-600">check_circle</span>
+                    <span>{{ firebaseConfigMessage() }}</span>
+                  </div>
+                }
+
+                @if (firebaseConfigError()) {
+                  <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <span class="material-icons text-red-600">error</span>
+                    <span>{{ firebaseConfigError() }}</span>
+                  </div>
+                }
+
+                <form (ngSubmit)="saveFirebaseConfig()" class="space-y-4 text-xs">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label class="block font-bold text-slate-700 mb-1">Firebase Project ID *</label>
+                      <input 
+                        type="text" 
+                        [value]="firebaseConfigForm().projectId"
+                        (input)="firebaseConfigForm().projectId = $any($event.target).value"
+                        placeholder="ex: my-firebase-project-id"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label class="block font-bold text-slate-700 mb-1">API Key *</label>
+                      <input 
+                        type="text" 
+                        [value]="firebaseConfigForm().apiKey"
+                        (input)="firebaseConfigForm().apiKey = $any($event.target).value"
+                        placeholder="ex: AIzaSy..."
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label class="block font-bold text-slate-700 mb-1">Auth Domain</label>
+                      <input 
+                        type="text" 
+                        [value]="firebaseConfigForm().authDomain"
+                        (input)="firebaseConfigForm().authDomain = $any($event.target).value"
+                        placeholder="ex: project.firebaseapp.com"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono text-slate-800 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label class="block font-bold text-slate-700 mb-1">Database ID</label>
+                      <input 
+                        type="text" 
+                        [value]="firebaseConfigForm().firestoreDatabaseId"
+                        (input)="firebaseConfigForm().firestoreDatabaseId = $any($event.target).value"
+                        placeholder="(default)"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono text-slate-800 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label class="block font-bold text-slate-700 mb-1">Storage Bucket</label>
+                      <input 
+                        type="text" 
+                        [value]="firebaseConfigForm().storageBucket"
+                        (input)="firebaseConfigForm().storageBucket = $any($event.target).value"
+                        placeholder="ex: project.appspot.com"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono text-slate-800 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label class="block font-bold text-slate-700 mb-1">App ID</label>
+                      <input 
+                        type="text" 
+                        [value]="firebaseConfigForm().appId"
+                        (input)="firebaseConfigForm().appId = $any($event.target).value"
+                        placeholder="ex: 1:123456789:web:abcdef"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono text-slate-800 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="bg-amber-50/50 border border-amber-200 p-4 rounded-xl text-slate-700 leading-relaxed text-[11px] space-y-1">
+                    <p class="font-bold text-amber-900">💡 Remarque sur le changement de Firebase :</p>
+                    <p>En enregistrant une nouvelle configuration Firebase, le serveur rechargera les données depuis le nouveau projet Firestore spécifié. Vos permissions d'administrateur restent préservées.</p>
+                  </div>
+
+                  <div class="flex items-center justify-end gap-3 pt-2">
+                    <button 
+                      type="submit" 
+                      [disabled]="firebaseConfigLoading() || !firebaseConfigForm().projectId"
+                      class="bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white font-bold px-6 py-2.5 rounded-xl shadow-xs flex items-center gap-2 cursor-pointer transition-transform active:scale-95"
+                    >
+                      <span class="material-icons text-sm">save</span> Enregistrer et Basculer vers ce Firebase
+                    </button>
+                  </div>
+                </form>
               </div>
             }
 
@@ -6632,6 +6763,87 @@
               </button>
             </div>
 
+            <!-- Client Financial Balance KPI Header (Solde Client en Haut) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 my-4">
+              <!-- Direct Clients Balance -->
+              <div class="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 shadow-xs">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-icons text-amber-600 bg-amber-100 p-2 rounded-xl text-lg">account_balance_wallet</span>
+                    <div>
+                      <h4 class="font-black text-slate-800 text-xs uppercase tracking-wider">Solde Clients Directs</h4>
+                      <span class="text-[10px] text-slate-500 font-medium">{{ data.directClientsOverview().length }} clients</span>
+                    </div>
+                  </div>
+                  <div [class]="'text-right font-mono font-black text-xs px-2.5 py-1 rounded-xl shadow-2xs ' + (data.directClientsSolde() >= 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300')">
+                    {{ data.directClientsSolde() >= 0 ? '+' : '' }}{{ data.directClientsSolde() | number:'1.2-2' }} DH
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-[10px] mt-2 pt-2 border-t border-amber-200/60 font-medium">
+                  <div class="text-emerald-700 font-bold flex items-center justify-between">
+                    <span>Avances :</span>
+                    <span class="font-mono">+{{ data.directClientsAdvances() | number:'1.2-2' }} DH</span>
+                  </div>
+                  <div class="text-red-600 font-bold flex items-center justify-between">
+                    <span>Reste à payer :</span>
+                    <span class="font-mono">-{{ data.directClientsUnpaid() | number:'1.2-2' }} DH</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- B2B Partners Balance -->
+              <div class="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-2xl p-4 shadow-xs">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-icons text-indigo-600 bg-indigo-100 p-2 rounded-xl text-lg">handshake</span>
+                    <div>
+                      <h4 class="font-black text-slate-800 text-xs uppercase tracking-wider">Solde Partenaires B2B</h4>
+                      <span class="text-[10px] text-slate-500 font-medium">{{ data.b2bPartnersOverview().length }} centres et imprimeries</span>
+                    </div>
+                  </div>
+                  <div [class]="'text-right font-mono font-black text-xs px-2.5 py-1 rounded-xl shadow-2xs ' + (data.b2bPartnersSolde() >= 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300')">
+                    {{ data.b2bPartnersSolde() >= 0 ? '+' : '' }}{{ data.b2bPartnersSolde() | number:'1.2-2' }} DH
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-[10px] mt-2 pt-2 border-t border-indigo-200/60 font-medium">
+                  <div class="text-emerald-700 font-bold flex items-center justify-between">
+                    <span>Avances :</span>
+                    <span class="font-mono">+{{ data.b2bPartnersAdvances() | number:'1.2-2' }} DH</span>
+                  </div>
+                  <div class="text-red-600 font-bold flex items-center justify-between">
+                    <span>Reste à payer :</span>
+                    <span class="font-mono">-{{ data.b2bPartnersUnpaid() | number:'1.2-2' }} DH</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Global Balance Summary -->
+              <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white border border-slate-700 rounded-2xl p-4 shadow-xs">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-icons text-amber-400 bg-slate-800 p-2 rounded-xl text-lg">payments</span>
+                    <div>
+                      <h4 class="font-black text-slate-200 text-xs uppercase tracking-wider">Solde Global Portefeuille</h4>
+                      <span class="text-[10px] text-slate-400 font-medium">Position financière nette</span>
+                    </div>
+                  </div>
+                  <div [class]="'text-right font-mono font-black text-xs px-2.5 py-1 rounded-xl ' + (data.totalClientsSolde() >= 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30')">
+                    {{ data.totalClientsSolde() >= 0 ? '+' : '' }}{{ data.totalClientsSolde() | number:'1.2-2' }} DH
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-[10px] mt-2 pt-2 border-t border-slate-700/80 font-medium">
+                  <div class="text-emerald-400 font-bold flex items-center justify-between">
+                    <span>Total Avances :</span>
+                    <span class="font-mono">+{{ data.totalClientsAdvances() | number:'1.2-2' }} DH</span>
+                  </div>
+                  <div class="text-red-400 font-bold flex items-center justify-between">
+                    <span>Total Reste :</span>
+                    <span class="font-mono">-{{ data.totalClientsUnpaid() | number:'1.2-2' }} DH</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Search & Filters Toolbar -->
             <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
               <div class="relative flex-1">
@@ -6692,6 +6904,7 @@
                         <th class="py-3.5 px-3">Rôle & Département</th>
                         <th class="py-3.5 px-3">Coordonnées / Ville</th>
                         <th class="py-3.5 px-3">Entreprise / Matricule</th>
+                        <th class="py-3.5 px-3 text-center">Solde Client</th>
                         <th class="py-3.5 px-3 text-center">Statut</th>
                         <th class="py-3.5 px-4 text-right">Actions</th>
                       </tr>
@@ -6743,6 +6956,33 @@
                               }
                             } @else {
                               <span class="text-slate-300">-</span>
+                            }
+                          </td>
+
+                          <!-- Solde Client -->
+                          <td class="py-3.5 px-3 text-center">
+                            @let clientOverview = getClientOverviewForUser(u.id, u.email);
+                            @if (clientOverview) {
+                              <div class="inline-flex flex-col items-center">
+                                @if ((clientOverview.solde || 0) > 0) {
+                                  <span class="bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono font-black text-[11px] px-2.5 py-0.5 rounded-full" title="Paiement d'avance disponible chez nous">
+                                    +{{ clientOverview.solde | number:'1.2-2' }} DH
+                                  </span>
+                                  <span class="text-[9px] text-emerald-600 font-bold mt-0.5">Avance Client</span>
+                                } @else if ((clientOverview.solde || 0) < 0) {
+                                  <span class="bg-red-50 text-red-700 border border-red-200 font-mono font-black text-[11px] px-2.5 py-0.5 rounded-full" title="Reste à payer par le client">
+                                    {{ clientOverview.solde | number:'1.2-2' }} DH
+                                  </span>
+                                  <span class="text-[9px] text-red-500 font-bold mt-0.5">Reste à payer</span>
+                                } @else {
+                                  <span class="bg-slate-100 text-slate-700 border border-slate-200 font-mono font-bold text-[10px] px-2.5 py-0.5 rounded-full">
+                                    0.00 DH
+                                  </span>
+                                  <span class="text-[9px] text-slate-400 font-medium mt-0.5">À jour</span>
+                                }
+                              </div>
+                            } @else {
+                              <span class="text-slate-300 font-mono text-[11px]">-</span>
                             }
                           </td>
 
