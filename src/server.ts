@@ -56,9 +56,15 @@ for (const p of possiblePaths) {
 if (!browserDistFolder) {
   browserDistFolder = possiblePaths[0]; // Fallback to default
 }
+console.log(`[SSR] browserDistFolder: ${browserDistFolder}`);
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
+
+app.use((req, res, next) => {
+  console.log(`[Request] ${req.method} ${req.url}`);
+  next();
+});
 
 const angularApp = new AngularNodeAppEngine();
 
@@ -3375,7 +3381,7 @@ app.use((req, res, next) => {
  * The server listens on the port defined by the `PORT` environment variable, or defaults to 4000.
  */
 if (isMainModule(import.meta.url) || process.env['pm_id']) {
-  const port = process.env['PORT'] || 4000;
+  const port = 3000;
   app.listen(port, (error) => {
     if (error) {
       throw error;
